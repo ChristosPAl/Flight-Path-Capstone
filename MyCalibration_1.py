@@ -1,10 +1,3 @@
-__author__ = "Hannes Hoettinger"
-
-import cv2                   #open cv2
-# import cv2.cv as cv          #open cv
-import time
-import numpy as np
-from threading import Thread
 from threading import Event
 import sys
 import math
@@ -16,7 +9,8 @@ from MathFunctions import *
 from Classes import *
 from Draw import *
 from VideoCapture import VideoStream
-
+import numpy as np
+import cv2
 
 DEBUG = False
 
@@ -25,10 +19,50 @@ winName3 = "hsv image colors?"
 winName4 = "Calibration?"
 winName5 = "Choose Ring"
 
-
 def nothing(x):
     pass
 
+# Define the MockVideoCapture class
+class MockVideoCapture:
+    def __init__(self, index):
+        self.index = index
+        self.is_opened = True
+
+    def isOpened(self):
+        return self.is_opened
+
+    def read(self):
+        # Return a dummy frame (e.g., a black image)
+        return True, np.zeros((480, 640, 3), dtype=np.uint8)
+
+    def release(self):
+        self.is_opened = False
+
+# Function to get the appropriate VideoCapture object
+def get_video_capture(index):
+    try:
+        # Attempt to use the real camera
+        cap = cv2.VideoCapture(index)
+        if not cap.isOpened():
+            raise ValueError("Camera index out of range")
+        return cap
+    except:
+        # Fallback to mock camera if real camera is not available
+        print("Using mock camera")
+        return MockVideoCapture(index)
+
+# Example usage
+cap = get_video_capture(0)
+if not cap.isOpened():
+    print("Error: Camera index out of range")
+    sys.exit()
+
+# Example usage of imCalRGB_R
+imCalRGB_R = None  # Example initialization
+if imCalRGB_R is None:
+    print("Error: imCalRGB_R is None")
+else:
+    imCal_R = imCalRGB_R.copy()
 
 def destinationPoint(i, calData):
     dstpoint = [(calData.center_dartboard[0] + calData.ring_radius[5] * math.cos((0.5 + i) * calData.sectorangle)),
@@ -36,9 +70,7 @@ def destinationPoint(i, calData):
 
     return dstpoint
 
-
 def transformation(imCalRGB, calData, tx1, ty1, tx2, ty2, tx3, ty3, tx4, ty4):
-
     points = calData.points
 
     ## sectors are sometimes different -> make accessible
@@ -72,9 +104,7 @@ def transformation(imCalRGB, calData, tx1, ty1, tx2, ty2, tx3, ty3, tx4, ty4):
 
     return transformation_matrix
 
-
 def manipulateTransformationPoints(imCal, calData):
-
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
 
     cv2.createTrackbar('tx1', 'image', 0, 20, nothing)
@@ -120,7 +150,6 @@ def manipulateTransformationPoints(imCal, calData):
 
     return transformation_matrix
 
-
 def autocanny(imCal):
     # apply automatic Canny edge detection using the computed median
     sigma = 0.33
@@ -131,9 +160,7 @@ def autocanny(imCal):
 
     return edged
 
-
 def findEllipse(thresh2, image_proc_img):
-
     Ellipse = EllipseDef()
 
     contours, hierarchy = cv2.findContours(thresh2, 1, 2)
@@ -170,7 +197,6 @@ def findEllipse(thresh2, image_proc_img):
     Ellipse.y = y
     Ellipse.angle = angle
     return Ellipse, image_proc_img
-
 
 def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
     p = []
@@ -246,7 +272,6 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
 
     return lines_seg, image_proc_img
 
-
 def ellipse2circle(Ellipse):
     angle = (Ellipse.angle) * math.pi / 180
     x = Ellipse.x
@@ -266,7 +291,6 @@ def ellipse2circle(Ellipse):
     M = T2.dot(R2.dot(D.dot(R1.dot(T1))))
 
     return M
-
 
 def getEllipseLineIntersection(Ellipse, M, lines_seg):
     center_ellipse = (Ellipse.x, Ellipse.y)
@@ -289,9 +313,7 @@ def getEllipseLineIntersection(Ellipse, M, lines_seg):
 
     return intersectp_s
 
-
 def getTransformationPoints(image_proc_img, mount):
-
     imCalHSV = cv2.cvtColor(image_proc_img, cv2.COLOR_BGR2HSV)
     kernel = np.ones((5, 5), np.float32) / 25
     blur = cv2.filter2D(imCalHSV, -1, kernel)
@@ -382,6 +404,16 @@ def calibrate(cam_R, cam_L):
     imCal_R = imCalRGB_R.copy()
     imCal_L = imCalRGB_L.copy()
 
+    # Handle NoneType error
+    if imCalRGB_R is None:
+        print("Error: imCalRGB_R is None")
+        return
+    else:
+        imCal_R = imCalRGB_R.copy()
+        # Continue with the rest of your calibration logic
+        print("Calibration image copied successfully")
+
+
     imCalRGBorig = imCalRGB_R.copy()
 
     cv2.imwrite("frame1_R.jpg", imCalRGB_R)     # save calibration frame
@@ -447,6 +479,25 @@ def calibrate(cam_R, cam_L):
 
             imCal_R = imCalRGB_R.copy()
             imCal_L = imCalRGB_L.copy()
+
+            # Handle NoneType error
+            if imCalRGB_R is None:
+                print("Error: imCalRGB_R is None")
+                return
+            else:
+                imCal_R = imCalRGB_R.copy()
+                # Continue with the rest of your calibration logic
+                print("Calibration image copied successfully")
+
+            # Handle NoneType error
+            if imCalRGB_L is None:
+                print("Error: imCalRGB_R is None")
+                return
+            else:
+                imCal_L = imCalRGB_L.copy()
+                # Continue with the rest of your calibration logic
+                print("Calibration image copied successfully")
+
 
             calData_R.points = getTransformationPoints(imCal_R, "right")
             # 13/6: 0 | 6/10: 1 | 10/15: 2 | 15/2: 3 | 2/17: 4 | 17/3: 5 | 3/19: 6 | 19/7: 7 | 7/16: 8 | 16/8: 9 |
