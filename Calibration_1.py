@@ -17,7 +17,7 @@ from Classes import *
 from Draw import *
 from VideoCapture import VideoStream
 
-
+# yo what up
 DEBUG = False
 
 ring_arr = []
