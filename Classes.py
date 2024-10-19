@@ -2,7 +2,7 @@ __author__ = "Hannes Hoettinger"
 
 import math
 import cv2
-import cv2.cv as cv
+# import cv2.cv as cv  # Deprecated and not needed
 
 DEBUG = True
 
