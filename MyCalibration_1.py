@@ -391,159 +391,97 @@ def getTransformationPoints(image_proc_img, mount):
         return source_points
 
 
-def calibrate(cam_R, cam_L):
-
+def calibrate(cam):
     try:
-        success, imCalRGB_R = cam_R.read()
-        _, imCalRGB_L = cam_L.read()
+        success, imCalRGB = cam.read()
+        if not success or imCalRGB is None:
+            print("Error: imCalRGB is None")
+            return
 
-    except:
-        print("Could not init cams")
-        return
+        imCal = imCalRGB.copy()
+        imCalRGBorig = imCalRGB.copy()
 
-    imCal_R = imCalRGB_R.copy()
-    imCal_L = imCalRGB_L.copy()
+        cv2.imwrite("frame1.jpg", imCalRGB)  # save calibration frame
 
-    # Handle NoneType error
-    if imCalRGB_R is None:
-        print("Error: imCalRGB_R is None")
-        return
-    else:
-        imCal_R = imCalRGB_R.copy()
-        # Continue with the rest of your calibration logic
-        print("Calibration image copied successfully")
+        global calibrationComplete
+        calibrationComplete = False
 
+        while not calibrationComplete:
+            # Read calibration file, if exists
+            if os.path.isfile("calibrationData.pkl"):
+                try:
+                    with open('calibrationData.pkl', 'rb') as calFile:
+                        calData = pickle.load(calFile)
 
-    imCalRGBorig = imCalRGB_R.copy()
+                    # copy image for old calibration data
+                    transformed_img = cv2.warpPerspective(imCalRGB, calData.transformation_matrix, (800, 800))
 
-    cv2.imwrite("frame1_R.jpg", imCalRGB_R)     # save calibration frame
-    cv2.imwrite("frame1_L.jpg", imCalRGB_L)  # save calibration frame
+                    draw = Draw()
+                    transformed_img = draw.drawBoard(transformed_img, calData)
 
-    global calibrationComplete
-    calibrationComplete = False
+                    cv2.imshow("Cam", transformed_img)
 
-    while calibrationComplete == False:
-        #Read calibration file, if exists
-        if os.path.isfile("calibrationData_R.pkl"):
-            try:
-                calFile = open('calibrationData_R.pkl', 'rb')
-                calData_R = CalibrationData()
-                calData_R = pickle.load(calFile)
-                calFile.close()
+                    test = cv2.waitKey(0)
+                    if test == 13:
+                        cv2.destroyAllWindows()
+                        calibrationComplete = True
+                        return calData
+                    else:
+                        cv2.destroyAllWindows()
+                        calibrationComplete = True
+                        os.remove("calibrationData.pkl")
+                        calibrate(cam)
 
-                calFile = open('calibrationData_L.pkl', 'rb')
-                calData_L = CalibrationData()
-                calData_L = pickle.load(calFile)
-                calFile.close()
+                except EOFError as err:
+                    print(err)
 
-                #copy image for old calibration data
-                transformed_img_R = imCalRGB_R.copy()
-                transformed_img_L = imCalRGB_L.copy()
+            else:
+                calData = CalibrationData()
 
-                transformed_img_R = cv2.warpPerspective(imCalRGB_R, calData_R.transformation_matrix, (800, 800))
-                transformed_img_L = cv2.warpPerspective(imCalRGB_L, calData_L.transformation_matrix, (800, 800))
+                imCal = imCalRGB.copy()
 
-                draw_R = Draw()
-                draw_L = Draw()
-
-                transformed_img_R = draw_R.drawBoard(transformed_img_R, calData_R)
-                transformed_img_L = draw_L.drawBoard(transformed_img_L, calData_L)
-
-                cv2.imshow("Right Cam", transformed_img_R)
-                cv2.imshow("Left Cam", transformed_img_L)
-
-                test = cv2.waitKey(0)
-                if test == 13:
-                    cv2.destroyAllWindows()
-                    #we are good with the previous calibration data
-                    calibrationComplete = True
-                    return calData_R, calData_L
+                if imCalRGB is None:
+                    print("Error: imCalRGB is None")
+                    return
                 else:
-                    cv2.destroyAllWindows()
-                    calibrationComplete = True
-                    #delete the calibration file and start over
-                    os.remove("calibrationData_R.pkl")
-                    os.remove("calibrationData_L.pkl")
-                    #restart calibration
-                    calibrate(cam_R, cam_L)
+                    imCal = imCalRGB.copy()
+                    print("Calibration image copied successfully")
 
-            #corrupted file
-            except EOFError as err:
-                print(err)
+                calData.points = getTransformationPoints(imCal, "right")
+                calData.dstpoints = [12, 2, 8, 18]
+                calData.transformation_matrix = manipulateTransformationPoints(imCal, calData)
 
-        # start calibration if no calibration data exists
-        else:
-
-            calData_R = CalibrationData()
-            calData_L = CalibrationData()
-
-            imCal_R = imCalRGB_R.copy()
-            imCal_L = imCalRGB_L.copy()
-
-            # Handle NoneType error
-            if imCalRGB_R is None:
-                print("Error: imCalRGB_R is None")
-                return
-            else:
-                imCal_R = imCalRGB_R.copy()
-                # Continue with the rest of your calibration logic
-                print("Calibration image copied successfully")
-
-            # Handle NoneType error
-            if imCalRGB_L is None:
-                print("Error: imCalRGB_R is None")
-                return
-            else:
-                imCal_L = imCalRGB_L.copy()
-                # Continue with the rest of your calibration logic
-                print("Calibration image copied successfully")
-
-
-            calData_R.points = getTransformationPoints(imCal_R, "right")
-            # 13/6: 0 | 6/10: 1 | 10/15: 2 | 15/2: 3 | 2/17: 4 | 17/3: 5 | 3/19: 6 | 19/7: 7 | 7/16: 8 | 16/8: 9 |
-            # 8/11: 10 | 11/14: 11 | 14/9: 12 | 9/12: 13 | 12/5: 14 | 5/20: 15 | 20/1: 16 | 1/18: 17 | 18/4: 18 | 4/13: 19
-            # top, bottom, left, right
-            # 12/9, 2/15, 8/16, 13/4
-            calData_R.dstpoints = [12, 2, 8, 18]
-            calData_R.transformation_matrix = manipulateTransformationPoints(imCal_R, calData_R)
-
-            calData_L.points = getTransformationPoints(imCal_L, "left")
-            # 12/9, 2/15, 8/16, 13/4
-            calData_L.dstpoints = [12, 2, 8, 18]
-            calData_L.transformation_matrix = manipulateTransformationPoints(imCal_L, calData_L)
-
-            cv2.destroyAllWindows()
-
-            print("The dartboard image has now been normalized.")
-            print("")
-
-            cv2.imshow(winName4, imCal_R)
-            test = cv2.waitKey(0)
-            if test == 13:
-                cv2.destroyWindow(winName4)
                 cv2.destroyAllWindows()
 
-            #write the calibration data to a file
-            calFile = open("calibrationData_R.pkl", "wb")
-            pickle.dump(calData_R, calFile, 0)
-            calFile.close()
+                print("The dartboard image has now been normalized.")
+                print("")
 
-            calFile = open("calibrationData_L.pkl", "wb")
-            pickle.dump(calData_L, calFile, 0)
-            calFile.close()
+                cv2.imshow(winName4, imCal)
+                test = cv2.waitKey(0)
+                if test == 13:
+                    cv2.destroyWindow(winName4)
+                    cv2.destroyAllWindows()
 
-            calibrationComplete = True
+                with open("calibrationData.pkl", "wb") as calFile:
+                    pickle.dump(calData, calFile)
 
-            return calData_R, calData_L
+                calibrationComplete = True
 
+                return calData
 
-    cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
+    except Exception as e:
+        print(f"Calibration error: {e}")
 
 if __name__ == '__main__':
     print("Welcome to darts!")
 
-    cam_R = VideoStream(src=2).start()
-    cam_L = VideoStream(src=3).start()
+    cam = VideoStream(src=0).start()
 
-    calibrate(cam_R, cam_L)
+    try:
+        calibrate(cam)
+    finally:
+        cam.stop()
+        cv2.destroyAllWindows()
+        print("Camera stopped and windows destroyed")
