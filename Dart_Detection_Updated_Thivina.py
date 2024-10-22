@@ -117,7 +117,7 @@ def getRealLocation(corners_final, mount):
         corners_temp = cornerdata
         maxloc = np.argmax(corners_temp, axis=0)
         locationofdart = corners_temp[maxloc]
-        print "### used different location due to noise!"
+        print("### used different location due to noise!")
 
     return locationofdart
 

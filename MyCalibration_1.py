@@ -22,47 +22,47 @@ winName5 = "Choose Ring"
 def nothing(x):
     pass
 
-# Define the MockVideoCapture class
-class MockVideoCapture:
-    def __init__(self, index):
-        self.index = index
-        self.is_opened = True
+# # Define the MockVideoCapture class
+# class MockVideoCapture:
+#     def __init__(self, index):
+#         self.index = index
+#         self.is_opened = True
 
-    def isOpened(self):
-        return self.is_opened
+#     def isOpened(self):
+#         return self.is_opened
 
-    def read(self):
-        # Return a dummy frame (e.g., a black image)
-        return True, np.zeros((480, 640, 3), dtype=np.uint8)
+#     def read(self):
+#         # Return a dummy frame (e.g., a black image)
+#         return True, np.zeros((480, 640, 3), dtype=np.uint8)
 
-    def release(self):
-        self.is_opened = False
+#     def release(self):
+#         self.is_opened = False
 
-# Function to get the appropriate VideoCapture object
-def get_video_capture(index):
-    try:
-        # Attempt to use the real camera
-        cap = cv2.VideoCapture(index)
-        if not cap.isOpened():
-            raise ValueError("Camera index out of range")
-        return cap
-    except:
-        # Fallback to mock camera if real camera is not available
-        print("Using mock camera")
-        return MockVideoCapture(index)
+# # Function to get the appropriate VideoCapture object
+# def get_video_capture(index):
+#     try:
+#         # Attempt to use the real camera
+#         cap = cv2.VideoCapture(index)
+#         if not cap.isOpened():
+#             raise ValueError("Camera index out of range")
+#         return cap
+#     except:
+#         # Fallback to mock camera if real camera is not available
+#         print("Using mock camera")
+#         return MockVideoCapture(index)
 
-# Example usage
-cap = get_video_capture(0)
-if not cap.isOpened():
-    print("Error: Camera index out of range")
-    sys.exit()
+# # Example usage
+# cap = get_video_capture(0)
+# if not cap.isOpened():
+#     print("Error: Camera index out of range")
+#     sys.exit()
 
-# Example usage of imCalRGB_R
-imCalRGB_R = None  # Example initialization
-if imCalRGB_R is None:
-    print("Error: imCalRGB_R is None")
-else:
-    imCal_R = imCalRGB_R.copy()
+# # Example usage of imCalRGB_R
+# imCalRGB_R = None  # Example initialization
+# if imCalRGB_R is None:
+#     print("Error3: imCalRGB_R is None")
+# else:
+#     imCal_R = imCalRGB_R.copy()
 
 def destinationPoint(i, calData):
     dstpoint = [(calData.center_dartboard[0] + calData.ring_radius[5] * math.cos((0.5 + i) * calData.sectorangle)),
@@ -71,6 +71,7 @@ def destinationPoint(i, calData):
     return dstpoint
 
 def transformation(imCalRGB, calData, tx1, ty1, tx2, ty2, tx3, ty3, tx4, ty4):
+    print("entered transformation function")
     points = calData.points
 
     ## sectors are sometimes different -> make accessible
@@ -101,10 +102,13 @@ def transformation(imCalRGB, calData, tx1, ty1, tx2, ty2, tx3, ty3, tx4, ty4):
     cv2.circle(new_image, (int(newright[0]), int(newright[1])), 2, (255, 255, 0), 2, 4)
 
     cv2.imshow('manipulation', new_image)
+    cv2.waitKey(0)
 
+    print('returning transformation matrix')
     return transformation_matrix
 
 def manipulateTransformationPoints(imCal, calData):
+    print("manipulating transfomration points")
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
 
     cv2.createTrackbar('tx1', 'image', 0, 20, nothing)
@@ -129,8 +133,10 @@ def manipulateTransformationPoints(imCal, calData):
     imCal_copy = imCal.copy()
     while (1):
         cv2.imshow('image', imCal_copy)
+        cv2.waitKey(0)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
+            print("got k, break")
             break
         # get current positions of four trackbars
         tx1 = cv2.getTrackbarPos('tx1', 'image') - 10
@@ -147,6 +153,8 @@ def manipulateTransformationPoints(imCal, calData):
         else:
             # transform the image to form a perfect circle
             transformation_matrix = transformation(imCal, calData, tx1, ty1, tx2, ty2, tx3, ty3, tx4, ty4)
+            print("back here")
+            break #we added this
 
     return transformation_matrix
 
@@ -162,12 +170,12 @@ def autocanny(imCal):
 
 def findEllipse(thresh2, image_proc_img):
     Ellipse = EllipseDef()
-
+    print("found ellipse")
     contours, hierarchy = cv2.findContours(thresh2, 1, 2)
 
     minThresE = 200000/4
     maxThresE = 1000000/4
-
+    print(f"number of contours = {len(contours)}")
     ## contourArea threshold important -> make accessible
     for cnt in contours:
         try:  # threshold critical, change on demand?
@@ -178,7 +186,7 @@ def findEllipse(thresh2, image_proc_img):
                 x, y = ellipse[0]
                 a, b = ellipse[1]
                 angle = ellipse[2]
-
+                print(ellipse[1])
                 center_ellipse = (x, y)
 
                 a = a / 2
@@ -186,6 +194,8 @@ def findEllipse(thresh2, image_proc_img):
 
                 cv2.ellipse(image_proc_img, (int(x), int(y)), (int(a), int(b)), int(angle), 0.0, 360.0,
                             (255, 0, 0))
+            else:
+                print("no ellipse of correct size")
         # corrupted file
         except:
             print("error")
@@ -206,71 +216,84 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
 
     # fit line to find intersec point for dartboard center point
     lines = cv2.HoughLines(edged, 1, np.pi / 80, 100, 100)
+    print(f"length of lines: {len(lines[0])}")
 
-    ## sector angles important -> make accessible
-    for rho, theta in lines[0]:
-        # split between horizontal and vertical lines (take only lines in certain range)
-        if theta > np.pi / 180 * angleZone1[0] and theta < np.pi / 180 * angleZone1[1]:
+    for line in lines:
+        ## sector angles important -> make accessible
+        for rho, theta in line:
+            print(f"rho: {rho}, theta: {theta}")
+            # split between horizontal and vertical lines (take only lines in certain range)
+            print(f"{theta} > {np.pi / 180 * angleZone1[0]} and {theta} < {np.pi / 180 * angleZone1[1]}")
 
-            a = np.cos(theta)
-            b = np.sin(theta)
-            x0 = a * rho
-            y0 = b * rho
-            x1 = int(x0 + 2000 * (-b))
-            y1 = int(y0 + 2000 * (a))
-            x2 = int(x0 - 2000 * (-b))
-            y2 = int(y0 - 2000 * (a))
+            if theta > np.pi / 180 * angleZone1[0] and theta < np.pi / 180 * angleZone1[1]:
+                print("entered if statement")
 
-            for rho1, theta1 in lines[0]:
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                x1 = int(x0 + 2000 * (-b))
+                y1 = int(y0 + 2000 * (a))
+                x2 = int(x0 - 2000 * (-b))
+                y2 = int(y0 - 2000 * (a))
 
-                if theta1 > np.pi / 180 * angleZone2[0] and theta1 < np.pi / 180 * angleZone2[1]:
+                for line in lines:
+                    for rho1, theta1 in line:
+                        
+                        print(f"{theta1} > {np.pi / 180 * angleZone2[0]} and {theta1} < {np.pi / 180 * angleZone2[1]}")
 
-                    a = np.cos(theta1)
-                    b = np.sin(theta1)
-                    x0 = a * rho1
-                    y0 = b * rho1
-                    x3 = int(x0 + 2000 * (-b))
-                    y3 = int(y0 + 2000 * (a))
-                    x4 = int(x0 - 2000 * (-b))
-                    y4 = int(y0 - 2000 * (a))
+                        if theta1 > np.pi / 180 * angleZone2[0] and theta1 < np.pi / 180 * angleZone2[1]:
+                            print("entered second if statement")
+                            a = np.cos(theta1)
+                            b = np.sin(theta1)
+                            x0 = a * rho1
+                            y0 = b * rho1
+                            x3 = int(x0 + 2000 * (-b))
+                            y3 = int(y0 + 2000 * (a))
+                            x4 = int(x0 - 2000 * (-b))
+                            y4 = int(y0 - 2000 * (a))
 
-                    if y1 == y2 and y3 == y4:  # Horizontal Lines
-                        diff = abs(y1 - y3)
-                    elif x1 == x2 and x3 == x4:  # Vertical Lines
-                        diff = abs(x1 - x3)
-                    else:
-                        diff = 0
+                            if y1 == y2 and y3 == y4:  # Horizontal Lines
+                                diff = abs(y1 - y3)
+                            elif x1 == x2 and x3 == x4:  # Vertical Lines
+                                diff = abs(x1 - x3)
+                            else:
+                                diff = 0
 
-                    if diff < 200 and diff != 0:
-                        continue
+                            print(diff)
 
-                    cv2.line(image_proc_img, (x1, y1), (x2, y2), (255, 0, 0), 1)
-                    cv2.line(image_proc_img, (x3, y3), (x4, y4), (255, 0, 0), 1)
+                            if diff < 200 and diff != 0:
+                                continue
 
-                    p.append((x1, y1))
-                    p.append((x2, y2))
-                    p.append((x3, y3))
-                    p.append((x4, y4))
+                            #display lines
+                            cv2.line(image_proc_img, (x1, y1), (x2, y2), (255, 0, 0), 1)
+                            cv2.line(image_proc_img, (x3, y3), (x4, y4), (255, 0, 0), 1)
 
-                    intersectpx, intersectpy = intersectLines(p[counter], p[counter + 1], p[counter + 2],
-                                                              p[counter + 3])
+                            p.append((x1, y1))
+                            p.append((x2, y2))
+                            p.append((x3, y3))
+                            p.append((x4, y4))
+                            print(p)
 
-                    # consider only intersection close to the center of the image
-                    if intersectpx < 200 or intersectpx > 900 or intersectpy < 200 or intersectpy > 900:
-                        continue
+                            intersectpx, intersectpy = intersectLines(p[counter], p[counter + 1], p[counter + 2],
+                                                                    p[counter + 3])
 
-                    intersectp.append((intersectpx, intersectpy))
+                            # consider only intersection close to the center of the image
+                            if intersectpx < 200 or intersectpx > 900 or intersectpy < 200 or intersectpy > 900:
+                                continue
 
-                    lines_seg.append([(x1, y1), (x2, y2)])
-                    lines_seg.append([(x3, y3), (x4, y4)])
+                            intersectp.append((intersectpx, intersectpy))
 
-                    cv2.line(image_proc_img, (x1, y1), (x2, y2), (255, 0, 0), 1)
-                    cv2.line(image_proc_img, (x3, y3), (x4, y4), (255, 0, 0), 1)
+                            lines_seg.append([(x1, y1), (x2, y2)])
+                            lines_seg.append([(x3, y3), (x4, y4)])
 
-                    # point offset
-                    counter = counter + 4
+                            cv2.line(image_proc_img, (x1, y1), (x2, y2), (255, 0, 0), 1)
+                            cv2.line(image_proc_img, (x3, y3), (x4, y4), (255, 0, 0), 1)
 
-    return lines_seg, image_proc_img
+                            # point offset
+                            counter = counter + 4
+
+        return lines_seg, image_proc_img
 
 def ellipse2circle(Ellipse):
     angle = (Ellipse.angle) * math.pi / 180
@@ -311,6 +334,8 @@ def getEllipseLineIntersection(Ellipse, M, lines_seg):
                 intersectp_s.append(inter_p1)
                 intersectp_s.append(inter_p2)
 
+    print((intersectp_s))
+
     return intersectp_s
 
 def getTransformationPoints(image_proc_img, mount):
@@ -328,53 +353,62 @@ def getTransformationPoints(image_proc_img, mount):
     kernel = np.ones((5, 5), np.uint8)
     thresh2 = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
     cv2.imshow("thresh2", thresh2)
-
+    cv2.waitKey(0)
     # find enclosing ellipse
     Ellipse, image_proc_img = findEllipse(thresh2, image_proc_img)
-
+    print("we made it - found enclosing ellipse")
     # return the edged image
     edged = autocanny(thresh2)  # imCal
     cv2.imshow("test", edged)
-
+    cv2.waitKey(0)
     # find 2 sector lines -> horizontal and vertical sector line -> make angles accessible? with slider?
     if mount == "right":
-        angleZone1 = (Ellipse.angle - 5, Ellipse.angle + 5)
-        angleZone2 = (Ellipse.angle - 100, Ellipse.angle - 80)
+        print("mount is right, ellipse angle:")
+        print(Ellipse.angle)
+        angleZone1 = (Ellipse.angle - 5, Ellipse.angle + 5) # 5, 5 originally
+        angleZone2 = (Ellipse.angle - 100, Ellipse.angle - 80) # 100, 80 originally
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1, angleZone2)
     else:
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1=(80, 120), angleZone2=(30, 40))
 
     cv2.imshow("test4", image_proc_img)
+    cv2.waitKey(0)
 
     # ellipse 2 circle transformation to find intersection points -> source points for transformation
     M = ellipse2circle(Ellipse)
+    print(f"linesseg: {lines_seg}")
     intersectp_s = getEllipseLineIntersection(Ellipse, M, lines_seg)
 
-    source_points = []
+    source_points = intersectp_s
 
-    try:
-        new_intersect = np.mean(([intersectp_s[0],intersectp_s[4]]), axis=0, dtype=np.float32)
-        source_points.append(new_intersect) # top
-        new_intersect = np.mean(([intersectp_s[1], intersectp_s[5]]), axis=0, dtype=np.float32)
-        source_points.append(new_intersect) # bottom
-        new_intersect = np.mean(([intersectp_s[2], intersectp_s[6]]), axis=0, dtype=np.float32)
-        source_points.append(new_intersect) # left
-        new_intersect = np.mean(([intersectp_s[3], intersectp_s[7]]), axis=0, dtype=np.float32)
-        source_points.append(new_intersect) # right
-    except:
-        pointarray = np.array(intersectp_s)
-        top_idx = [np.argmin(pointarray[:, 1])][0]
-        bot_idx = [np.argmax(pointarray[:, 1])][0]
-        if mount == "right":
-            left_idx = [np.argmin(pointarray[:, 0])][0]
-            right_idx = [np.argmax(pointarray[:, 0])][0]
-        else:
-            left_idx = [np.argmax(pointarray[:, 0])][0]
-            right_idx = [np.argmin(pointarray[:, 0])][0]
-        source_points.append(intersectp_s[top_idx])  # top
-        source_points.append(intersectp_s[bot_idx])  # bottom
-        source_points.append(intersectp_s[left_idx])  # left
-        source_points.append(intersectp_s[right_idx])  # right
+    # source_points = []
+
+    # try:
+    #     new_intersect = np.mean(([intersectp_s[0],intersectp_s[4]]), axis=0, dtype=np.float32)
+    #     source_points.append(new_intersect) # top
+    #     new_intersect = np.mean(([intersectp_s[1], intersectp_s[5]]), axis=0, dtype=np.float32)
+    #     source_points.append(new_intersect) # bottom
+    #     new_intersect = np.mean(([intersectp_s[2], intersectp_s[6]]), axis=0, dtype=np.float32)
+    #     source_points.append(new_intersect) # left
+    #     new_intersect = np.mean(([intersectp_s[3], intersectp_s[7]]), axis=0, dtype=np.float32)
+    #     source_points.append(new_intersect) # right
+    #     print("368")
+    # except:
+    #     print("370")
+    #     pointarray = np.array(intersectp_s)
+    #     top_idx = [np.argmin(pointarray[:, 1])][0]
+    #     bot_idx = [np.argmax(pointarray[:, 1])][0]
+    #     if mount == "right":
+    #         left_idx = [np.argmin(pointarray[:, 0])][0]
+    #         right_idx = [np.argmax(pointarray[:, 0])][0]
+    #     else:
+    #         left_idx = [np.argmax(pointarray[:, 0])][0]
+    #         right_idx = [np.argmin(pointarray[:, 0])][0]
+    #     source_points.append(intersectp_s[top_idx])  # top
+    #     source_points.append(intersectp_s[bot_idx])  # bottom
+    #     source_points.append(intersectp_s[left_idx])  # left
+    #     source_points.append(intersectp_s[right_idx])  # right
+    #     print("384")
 
     cv2.circle(image_proc_img, (int(source_points[0][0]), int(source_points[0][1])), 3, (255, 0, 0), 2, 8)
     cv2.circle(image_proc_img, (int(source_points[1][0]), int(source_points[1][1])), 3, (255, 0, 0), 2, 8)
@@ -384,6 +418,7 @@ def getTransformationPoints(image_proc_img, mount):
     winName2 = "th circles?"
     cv2.namedWindow(winName2, cv2.WINDOW_AUTOSIZE)
     cv2.imshow(winName2, image_proc_img)
+    cv2.waitKey(0)
 
     end = cv2.waitKey(0)
     if end == 13:
@@ -395,7 +430,7 @@ def calibrate(cam):
     try:
         success, imCalRGB = cam.read()
         if not success or imCalRGB is None:
-            print("Error: imCalRGB is None")
+            print("Error1: imCalRGB is None")
             return
 
         imCal = imCalRGB.copy()
@@ -436,12 +471,13 @@ def calibrate(cam):
                     print(err)
 
             else:
+                print("callibration data does not exist, start to create")
                 calData = CalibrationData()
 
                 imCal = imCalRGB.copy()
 
                 if imCalRGB is None:
-                    print("Error: imCalRGB is None")
+                    print("Error2: imCalRGB is None")
                     return
                 else:
                     imCal = imCalRGB.copy()
@@ -449,6 +485,8 @@ def calibrate(cam):
 
                 calData.points = getTransformationPoints(imCal, "right")
                 calData.dstpoints = [12, 2, 8, 18]
+                print(calData.points)
+                print(calData.dstpoints)
                 calData.transformation_matrix = manipulateTransformationPoints(imCal, calData)
 
                 cv2.destroyAllWindows()
@@ -472,12 +510,15 @@ def calibrate(cam):
         cv2.destroyAllWindows()
 
     except Exception as e:
-        print(f"Calibration error: {e}")
+        print(f"Calibration error calibrate function general: {e}")
+
+import os
+os.environ['QT_QPA_PLATFORM'] = 'xcb'
 
 if __name__ == '__main__':
     print("Welcome to darts!")
 
-    cam = VideoStream(src=0).start()
+    cam = VideoStream(src=2).start()
 
     try:
         calibrate(cam)
