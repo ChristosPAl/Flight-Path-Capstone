@@ -1,57 +1,50 @@
+__author__ = "Hannes Hoettinger"
+
 import numpy as np
 import cv2
 import time
-import cv2.cv as cv
 import math
 import pickle
 from Classes import *
 from MathFunctions import *
 from DartsMapping import *
 from Draw import *
+from MyCalibration_1 import *
 
 DEBUG = False
 
 winName = "test2"
 
-
 def cam2gray(cam):
     success, image = cam.read()
     img_g = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-
     return success, img_g
-
 
 def getThreshold(cam, t):
     success, t_plus = cam2gray(cam)
     dimg = cv2.absdiff(t, t_plus)
-
     blur = cv2.GaussianBlur(dimg, (5, 5), 0)
     blur = cv2.bilateralFilter(blur, 9, 75, 75)
     _, thresh = cv2.threshold(blur, 60, 255, 0)
-
     return thresh
-
 
 def diff2blur(cam, t):
     _, t_plus = cam2gray(cam)
     dimg = cv2.absdiff(t, t_plus)
-
     ## kernel size important -> make accessible
     # filter noise from image distortions
     kernel = np.ones((5, 5), np.float32) / 25
     blur = cv2.filter2D(dimg, -1, kernel)
-
     return t_plus, blur
-
 
 def getCorners(img_in):
     # number of features to track is a distinctive feature
     ## FeaturesToTrack important -> make accessible
     edges = cv2.goodFeaturesToTrack(img_in, 640, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.06)  # k=0.08
-    corners = np.int0(edges)
-
+    #print(edges)
+    corners = np.int64(edges) #int0 before, threw error
+    #print(corners)
     return corners
-
 
 def filterCorners(corners):
     cornerdata = []
@@ -66,17 +59,13 @@ def filterCorners(corners):
         if abs(mean_corners[0][1] - yl) > 120:
             cornerdata.append(tt)
         tt += 1
-
-    corners_new = np.delete(corners, [cornerdata], axis=0)  # delete corners to form new array
-
+    corners_new = np.delete(corners, cornerdata, axis=0)  # delete corners to form new array
     return corners_new
 
-
 def filterCornersLine(corners, rows, cols):
-    [vx, vy, x, y] = cv2.fitLine(corners, cv.CV_DIST_HUBER, 0, 0.1, 0.1)
-    lefty = int((-x * vy / vx) + y)
-    righty = int(((cols - x) * vy / vx) + y)
-
+    [vx, vy, x, y] = cv2.fitLine(corners, cv2.DIST_HUBER, 0, 0.1, 0.1)
+    lefty = int((-x.item() * vy.item() / vx.item()) + y.item())
+    righty = int(((cols - x.item()) * vy.item() / vx.item()) + y.item())
     cornerdata = []
     tt = 0
     for i in corners:
@@ -85,23 +74,16 @@ def filterCornersLine(corners, rows, cols):
         distance = dist(0, lefty, cols - 1, righty, xl, yl)
         if distance > 40:  ## threshold important -> make accessible
             cornerdata.append(tt)
-
         tt += 1
-
-    corners_final = np.delete(corners, [cornerdata], axis=0)  # delete corners to form new array
-
+    corners_final = np.delete(corners, cornerdata, axis=0)  # delete corners to form new array
     return corners_final
 
-
 def getRealLocation(corners_final, mount):
-
     if mount == "right":
         loc = np.argmax(corners_final, axis=0)
     else:
         loc = np.argmin(corners_final, axis=0)
-
     locationofdart = corners_final[loc]
-
     # check if dart location has neighbouring corners (if not -> continue)
     cornerdata = []
     tt = 0
@@ -112,28 +94,88 @@ def getRealLocation(corners_final, mount):
             tt += 1
         else:
             cornerdata.append(tt)
-
     if tt < 3:
         corners_temp = cornerdata
         maxloc = np.argmax(corners_temp, axis=0)
         locationofdart = corners_temp[maxloc]
         print("### used different location due to noise!")
-
     return locationofdart
 
+def getEllipseLineIntersection(Ellipse, M, lines_seg):
+    center_ellipse = (Ellipse.x, Ellipse.y)
+    circle_radius = Ellipse.a
+    M_inv = np.linalg.inv(M)
+    # find line circle intersection and use inverse transformation matrix to transform it back to the ellipse
+    intersectp_s = []
+    for lin in lines_seg:
+        line_p1 = M.dot(np.transpose(np.hstack([lin[0], 1])))
+        line_p2 = M.dot(np.transpose(np.hstack([lin[1], 1])))
+        inter1, inter_p1, inter2, inter_p2 = intersectLineCircle(np.asarray(center_ellipse), circle_radius,
+                                                                 np.asarray(line_p1), np.asarray(line_p2))
+        if inter1:
+            inter_p1 = M_inv.dot(np.transpose(np.hstack([inter_p1, 1])))
+            if inter2:
+                inter_p2 = M_inv.dot(np.transpose(np.hstack([inter_p2, 1])))
+                intersectp_s.append(inter_p1)
+                intersectp_s.append(inter_p2)
+    print(intersectp_s)
+    return intersectp_s
+
+def manipulateTransformationPoints(imCal, calData):
+    print("manipulating transformation points")
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+    cv2.createTrackbar('tx1', 'image', 0, 20, nothing)
+    cv2.createTrackbar('ty1', 'image', 0, 20, nothing)
+    cv2.createTrackbar('tx2', 'image', 0, 20, nothing)
+    cv2.createTrackbar('ty2', 'image', 0, 20, nothing)
+    cv2.createTrackbar('tx3', 'image', 0, 20, nothing)
+    cv2.createTrackbar('ty3', 'image', 0, 20, nothing)
+    cv2.createTrackbar('tx4', 'image', 0, 20, nothing)
+    cv2.createTrackbar('ty4', 'image', 0, 20, nothing)
+    cv2.setTrackbarPos('tx1', 'image', 10)
+    cv2.setTrackbarPos('ty1', 'image', 10)
+    cv2.setTrackbarPos('tx2', 'image', 10)
+    cv2.setTrackbarPos('ty2', 'image', 10)
+    cv2.setTrackbarPos('tx3', 'image', 10)
+    cv2.setTrackbarPos('ty3', 'image', 10)
+    cv2.setTrackbarPos('tx4', 'image', 10)
+    cv2.setTrackbarPos('ty4', 'image', 10)
+    # create switch for ON/OFF functionality
+    switch = '0 : OFF \n1 : ON'
+    cv2.createTrackbar(switch, 'image', 0, 1, nothing)
+    imCal_copy = imCal.copy()
+    while True:
+        cv2.imshow('image', imCal_copy)
+        k = cv2.waitKey(1) & 0xFF
+        if k == 27:
+            print("got k, break")
+            break
+        # get current positions of four trackbars
+        tx1 = cv2.getTrackbarPos('tx1', 'image') - 10
+        ty1 = cv2.getTrackbarPos('ty1', 'image') - 10
+        tx2 = cv2.getTrackbarPos('tx2', 'image') - 10
+        ty2 = cv2.getTrackbarPos('ty2', 'image') - 10
+        tx3 = cv2.getTrackbarPos('tx3', 'image') - 10
+        ty3 = cv2.getTrackbarPos('ty3', 'image') - 10
+        tx4 = cv2.getTrackbarPos('tx4', 'image') - 10
+        ty4 = cv2.getTrackbarPos('ty4', 'image') - 10
+        s = cv2.getTrackbarPos(switch, 'image')
+        if s == 0:
+            imCal_copy[:] = 0
+        else:
+            # transform the image to form a perfect circle
+            transformation_matrix = transformation(imCal, calData, tx1, ty1, tx2, ty2, tx3, ty3, tx4, ty4)
+    return transformation_matrix
 
 def getDarts(cam_R, cam_L, calData_R, calData_L, playerObj, GUI):
-
     finalScore = 0
     count = 0
     breaker = 0
     ## threshold important -> make accessible
-    minThres = 2000/2
-    maxThres = 15000/2
-
+    minThres = 2000 / 2
+    maxThres = 15000 / 2
     # save score if score is below 1...
     old_score = playerObj.score
-
     # Read first image twice (issue somewhere) to start loop:
     _, _ = cam2gray(cam_R)
     _, _ = cam2gray(cam_L)
@@ -141,18 +183,16 @@ def getDarts(cam_R, cam_L, calData_R, calData_L, playerObj, GUI):
     time.sleep(0.1)
     success, t_R = cam2gray(cam_R)
     _, t_L = cam2gray(cam_L)
-
     while success:
         # wait for camera
         time.sleep(0.1)
         # check if dart hit the board
         thresh_R = getThreshold(cam_R, t_R)
         thresh_L = getThreshold(cam_L, t_L)
-
-        print cv2.countNonZero(thresh_R)
+        print(cv2.countNonZero(thresh_R))
         ## threshold important
         if (cv2.countNonZero(thresh_R) > minThres and cv2.countNonZero(thresh_R) < maxThres) \
-            or (cv2.countNonZero(thresh_L) > minThres and cv2.countNonZero(thresh_L) < maxThres):
+                or (cv2.countNonZero(thresh_L) > minThres and cv2.countNonZero(thresh_L) < maxThres):
             # wait for camera vibrations
             time.sleep(0.2)
             # filter noise
@@ -161,67 +201,52 @@ def getDarts(cam_R, cam_L, calData_R, calData_L, playerObj, GUI):
             # get corners
             corners_R = getCorners(blur_R)
             corners_L = getCorners(blur_L)
-
             testimg = blur_R.copy()
-
             # dart outside?
             if corners_R.size < 40 and corners_L.size < 40:
-                print "### dart not detected"
+                print("### dart not detected")
                 continue
-
             # filter corners
             corners_f_R = filterCorners(corners_R)
             corners_f_L = filterCorners(corners_L)
-
             # dart outside?
             if corners_f_R.size < 30 and corners_f_L.size < 30:
-                print "### dart not detected"
+                print("### dart not detected")
                 continue
-
             # find left and rightmost corners#
             rows, cols = blur_R.shape[:2]
             corners_final_R = filterCornersLine(corners_f_R, rows, cols)
             corners_final_L = filterCornersLine(corners_f_L, rows, cols)
-
             _, thresh_R = cv2.threshold(blur_R, 60, 255, 0)
             _, thresh_L = cv2.threshold(blur_L, 60, 255, 0)
-
             # check if it was really a dart
-            print cv2.countNonZero(thresh_R)
-            if cv2.countNonZero(thresh_R) > maxThres*2 or cv2.countNonZero(thresh_L) > maxThres*2:
+            print(cv2.countNonZero(thresh_R))
+            if cv2.countNonZero(thresh_R) > maxThres * 2 or cv2.countNonZero(thresh_L) > maxThres * 2:
                 continue
-
-            print "Dart detected"
+            print("Dart detected")
             # dart was found -> increase counter
             breaker += 1
-
             dartInfo = DartDef()
-
             # get final darts location
             try:
                 dartInfo_R = DartDef()
                 dartInfo_L = DartDef()
-
                 dartInfo_R.corners = corners_final_R.size
                 dartInfo_L.corners = corners_final_L.size
-
                 locationofdart_R = getRealLocation(corners_final_R, "right")
                 locationofdart_L = getRealLocation(corners_final_L, "left")
-
                 # check for the location of the dart with the calibration
                 dartloc_R = getTransformedLocation(locationofdart_R.item(0), locationofdart_R.item(1), calData_R)
                 dartloc_L = getTransformedLocation(locationofdart_L.item(0), locationofdart_L.item(1), calData_L)
                 # detect region and score
                 dartInfo_R = getDartRegion(dartloc_R, calData_R)
                 dartInfo_L = getDartRegion(dartloc_L, calData_L)
-
                 cv2.circle(testimg, (locationofdart_R.item(0), locationofdart_R.item(1)), 10, (255, 255, 255), 2, 8)
                 cv2.circle(testimg, (locationofdart_R.item(0), locationofdart_R.item(1)), 2, (0, 255, 0), 2, 8)
             except:
-                print "Something went wrong in finding the darts location!"
+                print("Something went wrong in finding the darts location!")
                 breaker -= 1
                 continue
-
             # "merge" scores
             if dartInfo_R.base == dartInfo_L.base and dartInfo_R.multiplier == dartInfo_L.multiplier:
                 dartInfo = dartInfo_R
@@ -231,77 +256,146 @@ def getDarts(cam_R, cam_L, calData_R, calData_L, playerObj, GUI):
                     dartInfo = dartInfo_R
                 else:
                     dartInfo = dartInfo_L
-
-            print dartInfo.base, dartInfo.multiplier
-
+            print(dartInfo.base, dartInfo.multiplier)
             if breaker == 1:
-                GUI.dart1entry.insert(10,str(dartInfo.base * dartInfo.multiplier))
+                GUI.dart1entry.insert(10, str(dartInfo.base * dartInfo.multiplier))
                 dart = int(GUI.dart1entry.get())
-                cv2.imwrite("frame2.jpg", testimg)     # save dart1 frame
+                cv2.imwrite("frame2.jpg", testimg)  # save dart1 frame
             elif breaker == 2:
-                GUI.dart2entry.insert(10,str(dartInfo.base * dartInfo.multiplier))
+                GUI.dart2entry.insert(10, str(dartInfo.base * dartInfo.multiplier))
                 dart = int(GUI.dart2entry.get())
-                cv2.imwrite("frame3.jpg", testimg)     # save dart2 frame
+                cv2.imwrite("frame3.jpg", testimg)  # save dart2 frame
             elif breaker == 3:
-                GUI.dart3entry.insert(10,str(dartInfo.base * dartInfo.multiplier))
+                GUI.dart3entry.insert(10, str(dartInfo.base * dartInfo.multiplier))
                 dart = int(GUI.dart3entry.get())
-                cv2.imwrite("frame4.jpg", testimg)     # save dart3 frame
-
+                cv2.imwrite("frame4.jpg", testimg)  # save dart3 frame
             playerObj.score -= dart
-
             if playerObj.score == 0 and dartInfo.multiplier == 2:
                 playerObj.score = 0
                 breaker = 3
             elif playerObj.score <= 1:
                 playerObj.score = old_score
                 breaker = 3
-
             # save new diff img for next dart
             t_R = t_plus_R
             t_L = t_plus_L
-
             if playerObj.player == 1:
-                GUI.e1.delete(0,'end')
-                GUI.e1.insert(10,playerObj.score)
+                GUI.e1.delete(0, 'end')
+                GUI.e1.insert(10, playerObj.score)
             else:
-                GUI.e2.delete(0,'end')
-                GUI.e2.insert(10,playerObj.score)
-
+                GUI.e2.delete(0, 'end')
+                GUI.e2.insert(10, playerObj.score)
             finalScore += (dartInfo.base * dartInfo.multiplier)
-
             if breaker == 3:
                 break
-
-            #cv2.imshow(winName, tnow)
-
+            # cv2.imshow(winName, tnow)
         # missed dart
-        elif cv2.countNonZero(thresh_R) < maxThres/2 or cv2.countNonZero(thresh_L) < maxThres/2:
+        elif cv2.countNonZero(thresh_R) < maxThres / 2 or cv2.countNonZero(thresh_L) < maxThres / 2:
             continue
-
         # if player enters zone - break loop
-        elif cv2.countNonZero(thresh_R) > maxThres/2 or cv2.countNonZero(thresh_L) > maxThres/2:
+        elif cv2.countNonZero(thresh_R) > maxThres / 2 or cv2.countNonZero(thresh_L) > maxThres / 2:
             break
-
         key = cv2.waitKey(10)
         if key == 27:
             cv2.destroyWindow(winName)
             break
-
         count += 1
-
     GUI.finalentry.delete(0, 'end')
-    GUI.finalentry.insert(10,finalScore)
-
-    print finalScore
-
+    GUI.finalentry.insert(10, finalScore)
+    print(finalScore)
 
 if __name__ == '__main__':
-    print "Welcome to darts!"
-    img = cv2.imread("D:\Projekte\PycharmProjects\DartsScorer\Darts\Dartboard_2.png")
-    img2 = cv2.imread("D:\Projekte\PycharmProjects\DartsScorer\Darts\Dartboard_3.png")
+    print("Welcome to darts recognition test!")
 
-    vidcap = cv2.VideoCapture("C:\Users\hanne\OneDrive\Projekte\GitHub\darts\Darts\Darts_Testvideo_9_1.mp4")
-    from_video = True
+    # Initialize necessary variables
+    finalScore = 0
+    breaker = 0
+    maxThres = 100000  # Example threshold value
+    count = 0
+
+    # Open the image file
+    image = cv2.imread("/home/capstone/Flight-Path-Capstone/dart_in_board.jpg")
+
+    if image is None:
+        print("Cannot read image")
+        exit()
+
+    # Convert frame to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Apply GaussianBlur to the frame
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+    # Apply threshold to the frame
+    _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY)
+
+    # Get corners
+    corners = getCorners(blur)
+
+    # Filter corners
+    corners_f = filterCorners(corners)
+
+    # Find left and rightmost corners
+    rows, cols = blur.shape[:2]
+    corners_final = filterCornersLine(corners_f, rows, cols)
+
+    # Check if it was really a dart
+    print(cv2.countNonZero(thresh))
+    print(maxThres * 2)
+    if cv2.countNonZero(thresh) > maxThres * 2:
+        exit()
+
+    print("Dart detected")
+
+    # Dart was found -> increase counter
+    breaker += 1
+
+    # Get final dart's location
+    try:
+        locationofdart = getRealLocation(corners_final, "right")
+        print(f"Dart location: {locationofdart}")
+
+        # # Draw corners
+        # for corner in corners_final:
+        #     x, y = corner.ravel()
+        #     cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
+
+        # Draw the location of the dart
+        cv2.circle(image, (locationofdart[0], locationofdart[1]), 10, (255, 0, 0), 2)
+        cv2.circle(image, (locationofdart[0], locationofdart[1]), 2, (0, 0, 255), 2)
+
+        # # Find contours
+        # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # cv2.drawContours(image, contours, -1, (0, 255, 255), 2)
+
+        # Display the image with detected dart location, corners, and contours
+        cv2.imshow("Dart Detection", image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    except Exception as e:
+        print("Something went wrong in finding the dart's location!", e)
+        breaker -= 1
+        exit()
+
+    if breaker == 3:
+        exit()
+
+    key = cv2.waitKey(10)
+    if key == 27:
+        exit()
+    count += 1
+
+    print("Final score:", finalScore)
+
+    # Release resources
+    cv2.destroyAllWindows()
+
+    # print("Welcome to darts!")
+    # #img = cv2.imread("D:/Projekte/PycharmProjects/DartsScorer/Darts/Dartboard_2.png")
+    # #img2 = cv2.imread("D:/Projekte/PycharmProjects/DartsScorer/Darts/Dartboard_3.png")
+    # vidcap = cv2.VideoCapture("/home/capstone/Flight-Path-Capstone/Darts/Darts_Testvideo_9_1.mp4")
+    # from_video = True
 
 # if DEBUG:
 #     loc_x = dartloc[0]  # 400 + dartInfo.magnitude * math.tan(dartInfo.angle * math.pi/180)
