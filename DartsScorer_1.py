@@ -1,9 +1,9 @@
 __author__ = "Hannes Hoettinger"
 
-from Tkinter import *
+from tkinter import *
 from Calibration_1 import *
 from DartsRecognition import *
-from thread import *
+from threading import Thread
 from Classes import *
 
 import cv2
@@ -17,9 +17,11 @@ scoreplayer2 = 501
 
 points = []
 
+#initializing Video Stream
 cam_R = VideoStream(src=2).start()
 cam_L = VideoStream(src=3).start()
 
+#store calibration parameters
 calData_R = CalibrationData()
 calData_L = CalibrationData()
 
@@ -64,7 +66,7 @@ def GameOn():
 
 def printin(event):
     test = str(eval(GUI.e1.get()))
-    print test
+    print (test); 
 
 
 def calibrateGUI():
