@@ -40,7 +40,8 @@ def diff2blur(cam, t):
 def getCorners(img_in):
     # number of features to track is a distinctive feature
     ## FeaturesToTrack important -> make accessible
-    edges = cv2.goodFeaturesToTrack(img_in, 640, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.06)  # k=0.08
+    maxCorners = 640 #640 is the default numner of corners, may need to adjust
+    edges = cv2.goodFeaturesToTrack(img_in, maxCorners, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.08)  # k=0.08
     #print(edges)
     corners = np.int64(edges) #int0 before, threw error
     #print(corners)
@@ -72,25 +73,28 @@ def filterCornersLine(corners, rows, cols):
         xl, yl = i.ravel()
         # check distance to fitted line, only draw corners within certain range
         distance = dist(0, lefty, cols - 1, righty, xl, yl)
-        if distance > 40:  ## threshold important -> make accessible
+        if distance > 80:  ## threshold important -> make accessible
             cornerdata.append(tt)
         tt += 1
     corners_final = np.delete(corners, cornerdata, axis=0)  # delete corners to form new array
+    print("corner line filter complete")
     return corners_final
 
+#this function takes into account which mount is being used???
 def getRealLocation(corners_final, mount):
     if mount == "right":
         loc = np.argmax(corners_final, axis=0)
     else:
         loc = np.argmin(corners_final, axis=0)
     locationofdart = corners_final[loc]
+
     # check if dart location has neighbouring corners (if not -> continue)
     cornerdata = []
     tt = 0
     for i in corners_final:
         xl, yl = i.ravel()
         distance = abs(locationofdart.item(0) - xl) + abs(locationofdart.item(1) - yl)
-        if distance < 40:  ## threshold important
+        if distance < 80:  ## threshold important. initial value 40
             tt += 1
         else:
             cornerdata.append(tt)
@@ -99,9 +103,11 @@ def getRealLocation(corners_final, mount):
         maxloc = np.argmax(corners_temp, axis=0)
         locationofdart = corners_temp[maxloc]
         print("### used different location due to noise!")
+
     return locationofdart
 
-def getEllipseLineIntersection(Ellipse, M, lines_seg):
+#not sure why we have these dumb hoes are here..........
+#def getEllipseLineIntersection(Ellipse, M, lines_seg):
     center_ellipse = (Ellipse.x, Ellipse.y)
     circle_radius = Ellipse.a
     M_inv = np.linalg.inv(M)
@@ -121,7 +127,7 @@ def getEllipseLineIntersection(Ellipse, M, lines_seg):
     print(intersectp_s)
     return intersectp_s
 
-def manipulateTransformationPoints(imCal, calData):
+#def manipulateTransformationPoints(imCal, calData):
     print("manipulating transformation points")
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.createTrackbar('tx1', 'image', 0, 20, nothing)
@@ -313,32 +319,32 @@ if __name__ == '__main__':
     maxThres = 100000  # Example threshold value
     count = 0
 
+    # Construct the absolute path to the image file
+    script_dir = os.path.dirname(__file__)
+    image_path = os.path.join(script_dir, 'dart_in_board.jpg')
     # Open the image file
-    image = cv2.imread("/home/capstone/Flight-Path-Capstone/dart_in_board.jpg")
-
+    image = cv2.imread(image_path)
+    # Open the image file
+    #image = cv2.imread("/home/capstone/Flight-Path-Capstone/dart_in_board.jpg")
     if image is None:
         print("Cannot read image")
         exit()
 
     # Convert frame to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
     # Apply GaussianBlur to the frame
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-
     # Apply threshold to the frame
     _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY)
 
     # Get corners
     corners = getCorners(blur)
-
     # Filter corners
     corners_f = filterCorners(corners)
-
     # Find left and rightmost corners
     rows, cols = blur.shape[:2]
     corners_final = filterCornersLine(corners_f, rows, cols)
-
+    
     # Check if it was really a dart
     print(cv2.countNonZero(thresh))
     print(maxThres * 2)
@@ -355,14 +361,14 @@ if __name__ == '__main__':
         locationofdart = getRealLocation(corners_final, "right")
         print(f"Dart location: {locationofdart}")
 
-        # # Draw corners
-        # for corner in corners_final:
-        #     x, y = corner.ravel()
-        #     cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
+        # Draw corners
+        for corner in corners_final:
+            x, y = corner.ravel()
+            cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
 
-        # Draw the location of the dart
-        cv2.circle(image, (locationofdart[0], locationofdart[1]), 10, (255, 0, 0), 2)
-        cv2.circle(image, (locationofdart[0], locationofdart[1]), 2, (0, 0, 255), 2)
+        # # Draw the location of the dart
+        # cv2.circle(image, (locationofdart[0], locationofdart[1]), 10, (255, 0, 0), 2)
+        # cv2.circle(image, (locationofdart[0], locationofdart[1]), 2, (0, 0, 255), 2)
 
         # # Find contours
         # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
