@@ -24,14 +24,14 @@ def cam2gray(cam):
 def getThreshold(cam, t):
     #success, t_plus = cam2gray(cam)
     #dimg = cv2.absdiff(t, t_plus)
-    dimg = cv2.absdiff(t, cam)
+    dimg = cv2.absdiff(t, cam) #this is adapted to use a jpg
     blur = cv2.GaussianBlur(dimg, (5, 5), 0)
     blur = cv2.bilateralFilter(blur, 9, 75, 75)
     _, thresh = cv2.threshold(blur, 60, 255, 0)
     return thresh
 
 def diff2blur(t_plus, t):
-    #_, t_plus = cam2gray(cam)
+    #_, t_plus = cam2gray(cam) #adapted to use jpg
     dimg = cv2.absdiff(t, t_plus)
     ## kernel size important -> make accessible
     # filter noise from image distortions
@@ -108,28 +108,6 @@ def getRealLocation(corners_final, mount):
 
     return locationofdart
 
-#not sure why we have these dumb hoes are here..........
-#def getEllipseLineIntersection(Ellipse, M, lines_seg):
-    center_ellipse = (Ellipse.x, Ellipse.y)
-    circle_radius = Ellipse.a
-    M_inv = np.linalg.inv(M)
-    # find line circle intersection and use inverse transformation matrix to transform it back to the ellipse
-    intersectp_s = []
-    for lin in lines_seg:
-        line_p1 = M.dot(np.transpose(np.hstack([lin[0], 1])))
-        line_p2 = M.dot(np.transpose(np.hstack([lin[1], 1])))
-        inter1, inter_p1, inter2, inter_p2 = intersectLineCircle(np.asarray(center_ellipse), circle_radius,
-                                                                 np.asarray(line_p1), np.asarray(line_p2))
-        if inter1:
-            inter_p1 = M_inv.dot(np.transpose(np.hstack([inter_p1, 1])))
-            if inter2:
-                inter_p2 = M_inv.dot(np.transpose(np.hstack([inter_p2, 1])))
-                intersectp_s.append(inter_p1)
-                intersectp_s.append(inter_p2)
-    print(intersectp_s)
-    return intersectp_s
-
-#def manipulateTransformationPoints(imCal, calData):
     print("manipulating transformation points")
     cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.createTrackbar('tx1', 'image', 0, 20, nothing)
