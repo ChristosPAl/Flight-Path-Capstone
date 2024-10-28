@@ -35,6 +35,57 @@ def dist(x1,y1, x2,y2, x3,y3): # x3,y3 is the point
 
     return dist
 
+def getRealLocation(corners_final, mount, image):
+    if mount == "right":
+        loc = np.argmax(corners_final[:, 0])  # Get the index of the maximum x-coordinate
+    else:
+        loc = np.argmin(corners_final[:, 0])  # Get the index of the minimum x-coordinate
+    locationofdart = corners_final[loc]
+
+    # check if dart location has neighbouring corners (if not -> continue)
+    cornerdata = []
+    tt = 0
+    for i in corners_final:
+        xl, yl = i.ravel()
+        distance = abs(locationofdart[0] - xl) + abs(locationofdart[1] - yl)
+        if distance < 40:  ## threshold important. initial value 40
+            tt += 1
+        else:
+            cornerdata.append(tt)
+    if tt < 3:
+        corners_temp = corners_final[cornerdata]
+        maxloc = np.argmax(corners_temp[:, 0], axis=0)
+        locationofdart = corners_temp[maxloc]
+        print("### used different location due to noise!")
+
+    # Draw a circle at the dart's location
+    xl, yl = locationofdart
+    cv2.circle(image, (xl, yl), 10, (0, 0, 255), -1)  # Red circle
+    cv2.putText(image, 'Dart', (xl + 15, yl), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+    # Display the image with the dart location
+    cv2.imshow('Dart Location', image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    return locationofdart
+
+def getThreshold(image, ref_img):
+    #success, t_plus = cam2gray(cam)
+    dimg = cv2.absdiff(ref_img, image)
+    blur = cv2.GaussianBlur(dimg, (5, 5), 0)
+    blur = cv2.bilateralFilter(blur, 9, 75, 75)
+    _, thresh = cv2.threshold(blur, 60, 255, 0)
+    return thresh
+
+def diff2blur(image, ref_img):
+    #_, t_plus = cam2gray(cam)
+    dimg = cv2.absdiff(ref_img, image)
+    ## kernel size important -> make accessible
+    # filter noise from image distortions
+    kernel = np.ones((5, 5), np.float32) / 25
+    blur = cv2.filter2D(dimg, -1, kernel)
+    return image, blur
 
 def filterCorners(corners, img):
     cornerdata = []
@@ -45,9 +96,9 @@ def filterCorners(corners, img):
         xl, yl = i.ravel()
         # filter noise to only get dart arrow
         ## threshold important -> make accessible
-        if abs(mean_corners[0][0] - xl) > 200: #originally set to 180
+        if abs(mean_corners[0][0] - xl) > 180: #originally set to 180
             cornerdata.append(tt)
-        if abs(mean_corners[0][1] - yl) > 50: #originally set to 120
+        if abs(mean_corners[0][1] - yl) > 120: #originally set to 120
             cornerdata.append(tt)
         tt += 1
     corners_new = np.delete(corners, cornerdata, axis=0)  # delete corners to form new array
@@ -102,19 +153,10 @@ def filterCornersLine(corners, rows, cols, img):
     return corners_final
 
 def detectAndDisplayCorners(img):
-    # Convert image to grayscale 
-    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
-
-    # Apply GaussianBlur to the frame
-    blur = cv2.GaussianBlur(gray_img, (5, 5), 0)
-
-    # Apply threshold to the frame
-    _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY) 
-
     # Shi-Tomasi corner detection function 
     # We are detecting only 100 best corners here 
     # You can change the number to get desired result. 
-    corners = cv2.goodFeaturesToTrack(blur, 640, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.08)
+    corners = cv2.goodFeaturesToTrack(img, 640, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.08)
   
     # Convert corners values to integer 
     # So that we will be able to draw circles on them 
@@ -134,41 +176,60 @@ def detectAndDisplayCorners(img):
 
 # Example usage in main function
 if __name__ == "__main__":
-    # Construct the absolute path to the image file
+    # # Construct the absolute path to the image file
+    # script_dir = os.path.dirname(__file__)
+    # image_path = os.path.join(script_dir, 'dart_in_board.jpg')
+
+    # # Verify the constructed path
+    # print(f"Attempting to read image from: {image_path}")
+
+    # # Open the image file
+    # img = cv2.imread(image_path)
+
+    # if img is None:
+    #     print(f"Cannot read image from {image_path}")
+    #     exit()
     script_dir = os.path.dirname(__file__)
-    image_path = os.path.join(script_dir, 'dart_in_board.jpg')
-
-    # Verify the constructed path
-    print(f"Attempting to read image from: {image_path}")
-
+    image_path1 = os.path.join(script_dir, 'dart_in_board.jpg')
+    image_path2 = os.path.join(script_dir, 'no_dart_in_board.jpg')
     # Open the image file
-    img = cv2.imread(image_path)
+    image1_wDart= cv2.imread(image_path1)
+    image2_noDart = cv2.imread(image_path2)
 
-    if img is None:
-        print(f"Cannot read image from {image_path}")
+    if image1_wDart is None:
+        print("Cannot read image")
         exit()
+    
+    # Convert frame to grayscale
+    gray1_wDart = cv2.cvtColor(image1_wDart, cv2.COLOR_BGR2GRAY)
+    gray2_noDart = cv2.cvtColor(image2_noDart, cv2.COLOR_BGR2GRAY)
+    thresh = getThreshold(gray1_wDart,gray2_noDart)
+    blur1, blur2 = diff2blur(gray1_wDart, gray2_noDart)
+    cv2.imshow('Blurred Difference Image', blur2)
 
+    #img = blur2
     # Detect and display corners
-    corners = detectAndDisplayCorners(img)
-
+    corners = detectAndDisplayCorners(blur2)
+    
 
     # Convert image to grayscale 
-    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
+    #gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
 
-    # Apply GaussianBlur to the frame
-    blur = cv2.GaussianBlur(gray_img, (5, 5), 0)
+    # # Apply GaussianBlur to the frame
+    # blur = cv2.GaussianBlur(gray_img, (5, 5), 0)
 
-    # Apply threshold to the frame
-    _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY) 
-
-
+    # # Apply threshold to the frame
+    # _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY) 
 
     # Filter and display corners
-    filtered_corners = filterCorners(corners, img)
+    filtered_corners = filterCorners(corners, image1_wDart)
 
-    # Further filter corners using line fitting
-    rows, cols = img.shape[:2]
-    final_corners = filterCornersLine(filtered_corners, rows, cols, img)
+    # # Further filter corners using line fitting
+    rows, cols = blur2.shape[:2]
+    final_corners = filterCornersLine(filtered_corners, rows, cols, image1_wDart)
+
+    # locationofdart = getRealLocation(final_corners, "right", image1_wDart)
+    # print(f"Dart location: {locationofdart}")
 
     # De-allocate any associated memory usage   
     if cv2.waitKey(0) & 0xff == 27:  

@@ -15,21 +15,23 @@ DEBUG = False
 
 winName = "test2"
 
+#why are we not using these hoes???
 def cam2gray(cam):
     success, image = cam.read()
     img_g = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     return success, img_g
 
 def getThreshold(cam, t):
-    success, t_plus = cam2gray(cam)
-    dimg = cv2.absdiff(t, t_plus)
+    #success, t_plus = cam2gray(cam)
+    #dimg = cv2.absdiff(t, t_plus)
+    dimg = cv2.absdiff(t, cam)
     blur = cv2.GaussianBlur(dimg, (5, 5), 0)
     blur = cv2.bilateralFilter(blur, 9, 75, 75)
     _, thresh = cv2.threshold(blur, 60, 255, 0)
     return thresh
 
-def diff2blur(cam, t):
-    _, t_plus = cam2gray(cam)
+def diff2blur(t_plus, t):
+    #_, t_plus = cam2gray(cam)
     dimg = cv2.absdiff(t, t_plus)
     ## kernel size important -> make accessible
     # filter noise from image distortions
@@ -94,7 +96,7 @@ def getRealLocation(corners_final, mount):
     for i in corners_final:
         xl, yl = i.ravel()
         distance = abs(locationofdart.item(0) - xl) + abs(locationofdart.item(1) - yl)
-        if distance < 80:  ## threshold important. initial value 40
+        if distance < 40:  ## threshold important. initial value 40
             tt += 1
         else:
             cornerdata.append(tt)
@@ -319,32 +321,75 @@ if __name__ == '__main__':
     maxThres = 100000  # Example threshold value
     count = 0
 
-    # Construct the absolute path to the image file
+    # # Construct the absolute path to the image file
+    # script_dir = os.path.dirname(__file__)
+    # image_path = os.path.join(script_dir, 'dart_in_board.jpg')
+    # # Open the image file
+    # image= cv2.imread(image_path)
+    # # Open the image file
+    # #image = cv2.imread("/home/capstone/Flight-Path-Capstone/dart_in_board.jpg")
+    # if image is None:
+    #     print("Cannot read image")
+    #     exit()
+    # # Convert frame to grayscale
+    # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # # # Apply GaussianBlur to the frame
+    # blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    # # # Apply threshold to the frame
+    # _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY)
+    # # Get corners
+    # corners = getCorners(blur)
+    # # Filter corners
+    # corners_f = filterCorners(corners)
+    # # Find left and rightmost corners
+    # rows, cols = blur.shape[:2]
+    # corners_final = filterCornersLine(corners_f, rows, cols)
+    
+    # Get the directory of the current script
     script_dir = os.path.dirname(__file__)
-    image_path = os.path.join(script_dir, 'dart_in_board.jpg')
-    # Open the image file
-    image = cv2.imread(image_path)
-    # Open the image file
-    #image = cv2.imread("/home/capstone/Flight-Path-Capstone/dart_in_board.jpg")
-    if image is None:
-        print("Cannot read image")
+
+    # Construct the absolute paths to the image files
+    image_path1 = os.path.join(script_dir, 'dart_in_board.jpg')
+    image_path2 = os.path.join(script_dir, 'no_dart_in_board.jpg')
+
+    # Open the image files
+    image1_wDart = cv2.imread(image_path1)
+    image2_noDart = cv2.imread(image_path2)
+
+    # Check if the images were loaded successfully
+    if image1_wDart is None:
+        print(f"Cannot read image from {image_path1}")
+        exit()
+    if image2_noDart is None:
+        print(f"Cannot read image from {image_path2}")
         exit()
 
-    # Convert frame to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # Apply GaussianBlur to the frame
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    # Apply threshold to the frame
-    _, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY)
+    # # Display the images
+    # cv2.imshow('Dart Image', image1_wDart)
+    # cv2.imshow('Reference Image', image2_noDart)
 
-    # Get corners
-    corners = getCorners(blur)
-    # Filter corners
-    corners_f = filterCorners(corners)
-    # Find left and rightmost corners
-    rows, cols = blur.shape[:2]
-    corners_final = filterCornersLine(corners_f, rows, cols)
+    # Convert frame to grayscale
+    gray1_wDart = cv2.cvtColor(image1_wDart, cv2.COLOR_BGR2GRAY)
+    gray2_noDart = cv2.cvtColor(image2_noDart, cv2.COLOR_BGR2GRAY)
+
+    # Apply threshold and blur
+    thresh = getThreshold(gray1_wDart, gray2_noDart)
+    blur1, blur2 = diff2blur(gray1_wDart, gray2_noDart)
+
+    # Display the blurred difference image
+    cv2.imshow('Blurred Difference Image', blur2)
     
+    # Detect corners
+    corners = getCorners(blur2)
+
+    #filter
+    filtered_corners = filterCorners(corners)
+
+    # Further filter corners using line fitting
+    rows, cols = blur2.shape[:2]
+    corners_final = filterCornersLine(filtered_corners, rows, cols)
+
+
     # Check if it was really a dart
     print(cv2.countNonZero(thresh))
     print(maxThres * 2)
@@ -361,21 +406,21 @@ if __name__ == '__main__':
         locationofdart = getRealLocation(corners_final, "right")
         print(f"Dart location: {locationofdart}")
 
-        # Draw corners
-        for corner in corners_final:
-            x, y = corner.ravel()
-            cv2.circle(image, (x, y), 5, (0, 255, 0), -1)
+        # # Draw corners
+        # for corner in corners_final:
+        #     x, y = corner.ravel()
+        #     cv2.circle(image1_wDart, (x, y), 5, (0, 255, 0), -1)
 
         # # Draw the location of the dart
-        # cv2.circle(image, (locationofdart[0], locationofdart[1]), 10, (255, 0, 0), 2)
-        # cv2.circle(image, (locationofdart[0], locationofdart[1]), 2, (0, 0, 255), 2)
+        # cv2.circle(image1_wDart, (locationofdart[0], locationofdart[1]), 10, (255, 0, 0), 2)
+        # cv2.circle(image1_wDart, (locationofdart[0], locationofdart[1]), 2, (0, 0, 255), 2)
 
         # # Find contours
         # contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        # cv2.drawContours(image, contours, -1, (0, 255, 255), 2)
+        # cv2.drawContours(image1_wDart, contours, -1, (0, 255, 255), 2)
 
         # Display the image with detected dart location, corners, and contours
-        cv2.imshow("Dart Detection", image)
+        cv2.imshow("Dart Detection", image1_wDart)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
