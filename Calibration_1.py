@@ -1,6 +1,6 @@
 __author__ = "Hannes Hoettinger"
 
-import cv2                   #open cv2
+import cv2                   # type: ignore #open cv2
 # import cv2.cv as cv          #open cv
 import time
 import numpy as np
