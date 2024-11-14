@@ -1,8 +1,7 @@
-__author__ = "Hannes Hoettinger"
 
 from tkinter import *
 from Calibration_1 import *
-from DartsRecognition import *
+from Dart_Detection_Updated_Thivina import *
 from threading import Thread
 from Classes import *
 
@@ -150,7 +149,7 @@ player = Player()
 back_gnd = Canvas(root)
 back_gnd.pack(expand=True, fill='both')
 
-back_gnd_image = PhotoImage(file="C:\Users\hanne\OneDrive\Projekte\GitHub\darts\Dartboard.gif")
+back_gnd_image = PhotoImage(file="/home/capstone/Flight-Path-Capstone/Dartboard.gif")
 back_gnd.create_image(0, 0, anchor='nw', image=back_gnd_image)
 
 # Create Buttons

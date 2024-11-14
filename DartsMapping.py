@@ -10,6 +10,7 @@ DEBUG = True
 
 
 def getTransformedLocation(x_coord,y_coord, calData):
+    print("getTransformedLocation")
     try:
             # transform only the hit point with the saved transformation matrix
             # ToDo: idea for second camera -> transform complete image and overlap both images to find dart location?

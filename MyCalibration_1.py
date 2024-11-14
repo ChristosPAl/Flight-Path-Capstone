@@ -518,7 +518,7 @@ os.environ['QT_QPA_PLATFORM'] = 'xcb'
 if __name__ == '__main__':
     print("Welcome to darts!")
 
-    cam = VideoStream(src=2).start()
+    cam = VideoStream(src=0).start()
 
     try:
         calibrate(cam)

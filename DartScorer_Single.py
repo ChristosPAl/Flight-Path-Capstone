@@ -1,11 +1,13 @@
 from tkinter import *
-from Calibration_1 import *
-from DartsRecognition import *
+from MyCalibration_1 import *
+from testGetDarts import *
 from threading import Thread
 from Classes import *
+import pickle
 
 import cv2
 import time
+import os
 
 finalScore = 0
 curr_player = 1
@@ -31,6 +33,10 @@ def GameOn():
     global calData
     global cal_image
     success, cal_image = cam.read()
+    
+    with open('/home/capstone/Flight-Path-Capstone/calibrationData.pkl', 'rb') as f:
+        calData = pickle.load(f)
+
     cv2.imwrite("frame1.jpg", cal_image)  # save calibration frame
     scoreplayer1 = 501
     scoreplayer2 = 501
@@ -64,6 +70,8 @@ def printin(event):
 
 def calibrateGUI():
     global calData
+    if os.path.exists('/home/capstone/Flight-Path-Capstone/calibrationData.pkl'):
+        os.remove('/home/capstone/Flight-Path-Capstone/calibrationData.pkl')
     calData = calibrate(cam)
 
 
@@ -141,7 +149,7 @@ player = Player()
 back_gnd = Canvas(root)
 back_gnd.pack(expand=True, fill='both')
 
-back_gnd_image = PhotoImage(file="C:\\Users\\hanne\\OneDrive\\Projekte\\GitHub\\darts\\Dartboard.gif")
+back_gnd_image = PhotoImage(file="/home/capstone/Flight-Path-Capstone/Dartboard.gif")
 back_gnd.create_image(0, 0, anchor='nw', image=back_gnd_image)
 
 # Create Buttons
