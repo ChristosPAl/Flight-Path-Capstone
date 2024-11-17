@@ -241,8 +241,9 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
                     for rho1, theta1 in line:
                         
                         print(f"{theta1} > {np.pi / 180 * angleZone2[0]} and {theta1} < {np.pi / 180 * angleZone2[1]}")
+                        print(f"{theta1} > {(np.pi / 180) * angleZone2[0]} and {theta1} < {(np.pi / 180) * angleZone2[1]}")
 
-                        if theta1 > np.pi / 180 * angleZone2[0] and theta1 < np.pi / 180 * angleZone2[1]:
+                        if ((theta1 > (np.pi / 180) * angleZone2[0]) and (theta1 < (np.pi / 180) * angleZone2[1])):
                             print("entered second if statement")
                             a = np.cos(theta1)
                             b = np.sin(theta1)
@@ -293,7 +294,7 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
                             # point offset
                             counter = counter + 4
 
-        return lines_seg, image_proc_img
+    return lines_seg, image_proc_img
 
 def ellipse2circle(Ellipse):
     angle = (Ellipse.angle) * math.pi / 180
@@ -366,6 +367,9 @@ def getTransformationPoints(image_proc_img, mount):
         print("mount is right, ellipse angle:")
         print(Ellipse.angle)
         angleZone1 = (Ellipse.angle - 5, Ellipse.angle + 5) # 5, 5 originally
+
+
+
         angleZone2 = (Ellipse.angle - 100, Ellipse.angle - 80) # 100, 80 originally
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1, angleZone2)
     else:
@@ -373,6 +377,12 @@ def getTransformationPoints(image_proc_img, mount):
 
     cv2.imshow("test4", image_proc_img)
     cv2.waitKey(0)
+
+
+
+
+
+
 
     # ellipse 2 circle transformation to find intersection points -> source points for transformation
     M = ellipse2circle(Ellipse)

@@ -38,6 +38,7 @@ def GameOn():
         calData = pickle.load(f)
 
     cv2.imwrite("frame1.jpg", cal_image)  # save calibration frame
+
     scoreplayer1 = 501
     scoreplayer2 = 501
     global curr_player
@@ -149,7 +150,7 @@ player = Player()
 back_gnd = Canvas(root)
 back_gnd.pack(expand=True, fill='both')
 
-back_gnd_image = PhotoImage(file="/home/capstone/Flight-Path-Capstone/Dartboard.gif")
+back_gnd_image = PhotoImage(file="/home/capstone/Flight-Path-Capstone/dartboard_single_frame.gif")
 back_gnd.create_image(0, 0, anchor='nw', image=back_gnd_image)
 
 # Create Buttons
@@ -166,18 +167,18 @@ nextplayer = Button(None, text="Next Player", fg="black", font="Helvetica 26 bol
 back_gnd.create_window(460, 400, window=nextplayer, anchor='nw')
 
 # Player labels and entry for total score
-player1 = Entry(root, font="Helvetica 32 bold", width=7)
+player1 = Entry(root, font="Helvetica 28 bold", width=7)
 back_gnd.create_window(250, 20, window=player1, anchor='nw')
 player1.insert(10, "Player 1")
 
-player2 = Entry(root, font="Helvetica 32 bold", width=7)
+player2 = Entry(root, font="Helvetica 28 bold", width=7)
 back_gnd.create_window(400, 20, window=player2, anchor='nw')
 player2.insert(10, "Player 2")
 
-GUI.e1 = Entry(root, font="Helvetica 44 bold", width=4)
+GUI.e1 = Entry(root, font="Helvetica 30 bold", width=4)
 GUI.e1.bind("<Return>", printin)
 back_gnd.create_window(250, 80, window=GUI.e1, anchor='nw')
-GUI.e2 = Entry(root, font="Helvetica 44 bold", width=4)
+GUI.e2 = Entry(root, font="Helvetica 30 bold", width=4)
 back_gnd.create_window(400, 80, window=GUI.e2, anchor='nw')
 GUI.e1.insert(10, "501")
 GUI.e2.insert(10, "501")

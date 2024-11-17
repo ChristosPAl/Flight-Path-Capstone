@@ -40,7 +40,7 @@ def diff2blur(cam, t):
 def getCorners(img_in):
     # number of features to track is a distinctive feature
     ## FeaturesToTrack important -> make accessible
-    edges = cv2.goodFeaturesToTrack(img_in, 640, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.06)  # k=0.08
+    edges = cv2.goodFeaturesToTrack(img_in, 640, 0.0008, 1, mask=None, blockSize=3, useHarrisDetector=1, k=0.08)  # k=0.08
     #print(edges)
     corners = np.int64(edges) #int0 before, threw error
     #print(corners)
