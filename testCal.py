@@ -11,6 +11,7 @@ from Draw import *
 from VideoCapture import VideoStream
 import numpy as np
 import cv2
+
 def ellipse2circle(Ellipse):
     angle = (Ellipse.angle) * math.pi / 180
     x = Ellipse.x
@@ -30,6 +31,7 @@ def ellipse2circle(Ellipse):
     M = T2.dot(R2.dot(D.dot(R1.dot(T1))))
 
     return M
+
 def getEllipseLineIntersection(Ellipse, M, lines_seg):
     center_ellipse = (Ellipse.x, Ellipse.y)
     circle_radius = Ellipse.a
@@ -241,6 +243,10 @@ def test_function(image_path):
     cv2.circle(image_proc_img, (int(source_points[1][0]), int(source_points[1][1])), 3, (255, 0, 0), 2, 8)
     cv2.circle(image_proc_img, (int(source_points[2][0]), int(source_points[2][1])), 3, (255, 0, 0), 2, 8)
     cv2.circle(image_proc_img, (int(source_points[3][0]), int(source_points[3][1])), 3, (255, 0, 0), 2, 8)
+
+    calData = CalibrationData()
+
+    
 
     winName2 = "th circles?"
     cv2.namedWindow(winName2, cv2.WINDOW_AUTOSIZE)
