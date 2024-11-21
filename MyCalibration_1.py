@@ -494,7 +494,7 @@ def calibrate(cam):
                     print("Calibration image copied successfully")
 
                 calData.points = getTransformationPoints(imCal, "right")
-                calData.dstpoints = [12, 2, 8, 18]
+                calData.dstpoints = [12, 2, 7, 17]
                 print(calData.points)
                 print(calData.dstpoints)
                 calData.transformation_matrix = manipulateTransformationPoints(imCal, calData)
