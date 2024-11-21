@@ -365,8 +365,10 @@ def getTransformationPoints(image_proc_img, mount):
     if mount == "right":
         print("mount is right, ellipse angle:")
         print(Ellipse.angle)
-        angleZone1 = (Ellipse.angle - 5, Ellipse.angle + 5) # 5, 5 originally
-        angleZone2 = (Ellipse.angle - 100, Ellipse.angle - 80) # 100, 80 originally
+        # angleZone1 = (-10, 10) # 5, 5 originally
+        # angleZone2 = (80,100) # 100, 80 originally
+        angleZone1 = (Ellipse.angle + 15, Ellipse.angle + 35)
+        angleZone2 = (Ellipse.angle - 90, Ellipse.angle - 70)
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1, angleZone2)
     else:
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1=(80, 120), angleZone2=(30, 40))
@@ -484,7 +486,7 @@ def calibrate(cam):
                     print("Calibration image copied successfully")
 
                 calData.points = getTransformationPoints(imCal, "right")
-                calData.dstpoints = [12, 2, 7, 17]
+                calData.dstpoints = [13, 3, 7, 17]
                 print(calData.points)
                 print(calData.dstpoints)
                 calData.transformation_matrix = manipulateTransformationPoints(imCal, calData)

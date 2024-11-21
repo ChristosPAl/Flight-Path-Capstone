@@ -18,7 +18,8 @@ class VideoStream:
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
         (self.grabbed, self.frame) = self.stream.read()
-        self.frame = cv2.flip(self.frame, -1)  # flip the first frame
+        #self.frame = cv2.flip(self.frame, -1)  # flip the first frame
+        #self.frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
 
         # initialize the variable used to indicate if the thread should
         # be stopped
@@ -39,9 +40,9 @@ class VideoStream:
 
             # otherwise, read the next frame from the stream
             (grabbed, frame) = self.stream.read()
-            frame = cv2.flip(frame, -1)  # flip the frame
+            #frame = cv2.flip(frame, -1)  # flip the frame
             # rotate the frame 90 degrees
-            #frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
 
             # acquire the lock, update the frame, and release the lock
             with self.lock:
