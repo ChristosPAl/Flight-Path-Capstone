@@ -216,7 +216,7 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
 
     # fit line to find intersec point for dartboard center point
     lines = cv2.HoughLines(edged, 1, np.pi / 80, 100, 100)
-    print(f"length of lines: {len(lines[0])}")
+    print(f"length of lines: {len(lines)}")
 
     for line in lines:
         ## sector angles important -> make accessible
@@ -225,7 +225,8 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
             # split between horizontal and vertical lines (take only lines in certain range)
             print(f"{theta} > {np.pi / 180 * angleZone1[0]} and {theta} < {np.pi / 180 * angleZone1[1]}")
 
-            if theta > np.pi / 180 * angleZone1[0] and theta < np.pi / 180 * angleZone1[1]:
+            if theta > (np.pi / 180) * angleZone1[0] and theta < (np.pi / 180) * angleZone1[1]: #this is not working
+            #if theta > np.pi / 180 * angleZone1[0] and theta < 2.9: #hard coded need to understand this better
                 print("entered if statement")
 
                 a = np.cos(theta)
@@ -242,7 +243,8 @@ def findSectorLines(edged, image_proc_img, angleZone1, angleZone2):
                         
                         print(f"{theta1} > {np.pi / 180 * angleZone2[0]} and {theta1} < {np.pi / 180 * angleZone2[1]}")
 
-                        if theta1 > np.pi / 180 * angleZone2[0] and theta1 < np.pi / 180 * angleZone2[1]:
+                        if theta1 > (np.pi / 180) * angleZone2[0] and theta1 < (np.pi / 180) * angleZone2[1]: #not working
+                        #if theta1 > np.pi / 180 * angleZone2[0] and theta1 < 3: #hard coded need to understand this better
                             print("entered second if statement")
                             a = np.cos(theta1)
                             b = np.sin(theta1)
@@ -339,14 +341,19 @@ def getEllipseLineIntersection(Ellipse, M, lines_seg):
     return intersectp_s
 
 def getTransformationPoints(image_proc_img, mount):
+
+    # #not sure if these are the correct filtering techinques we should be using
     imCalHSV = cv2.cvtColor(image_proc_img, cv2.COLOR_BGR2HSV)
     kernel = np.ones((5, 5), np.float32) / 25
     blur = cv2.filter2D(imCalHSV, -1, kernel)
     h, s, imCal = cv2.split(blur)
-
     ## threshold important -> make accessible
     #ret, thresh = cv2.threshold(imCal, 140, 255, cv2.THRESH_BINARY_INV)
+    
+    #using this one
     ret, thresh = cv2.threshold(imCal, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+
 
     ## kernel size important -> make accessible
     # very important -> removes lines outside the outer ellipse -> find ellipse
@@ -359,13 +366,16 @@ def getTransformationPoints(image_proc_img, mount):
     print("we made it - found enclosing ellipse")
     # return the edged image
     edged = autocanny(thresh2)  # imCal
-    cv2.imshow("test", edged)
+    #edged = cv2.Canny(thresh2, 50, 150)
+    cv2.imshow("edge detection", edged)
     cv2.waitKey(0)
+
     # find 2 sector lines -> horizontal and vertical sector line -> make angles accessible? with slider?
     if mount == "right":
         print("mount is right, ellipse angle:")
-        print(Ellipse.angle)
-        angleZone1 = (Ellipse.angle - 5, Ellipse.angle + 5) # 5, 5 originally
+        print("Ellipse properties:")
+        print(f"a: {Ellipse.a}, b: {Ellipse.b}, x: {Ellipse.x}, y: {Ellipse.y}, angle: {Ellipse.angle}")
+        angleZone1 = (Ellipse.angle - 5, Ellipse.angle + 5) # 5, 5 originally #this need to be configured for our specific
         angleZone2 = (Ellipse.angle - 100, Ellipse.angle - 80) # 100, 80 originally
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1, angleZone2)
     else:
@@ -373,10 +383,12 @@ def getTransformationPoints(image_proc_img, mount):
 
     cv2.imshow("test4", image_proc_img)
     cv2.waitKey(0)
+    print("here")
+    print(f"linesseg: {lines_seg}")
 
     # ellipse 2 circle transformation to find intersection points -> source points for transformation
     M = ellipse2circle(Ellipse)
-    print(f"linesseg: {lines_seg}")
+    
     intersectp_s = getEllipseLineIntersection(Ellipse, M, lines_seg)
 
     source_points = intersectp_s
@@ -426,18 +438,17 @@ def getTransformationPoints(image_proc_img, mount):
         return source_points
 
 
-def calibrate(cam):
+def calibrate(image_path):
     try:
-        success, imCalRGB = cam.read()
-        if not success or imCalRGB is None:
-            print("Error1: imCalRGB is None")
+         # Read the image from the file
+        imCalRGB = cv2.imread(image_path)
+        if imCalRGB is None:
+            print("Error: imCalRGB is None")
             return
 
         imCal = imCalRGB.copy()
         imCalRGBorig = imCalRGB.copy()
-
-        cv2.imwrite("frame1.jpg", imCalRGB)  # save calibration frame
-
+        
         global calibrationComplete
         calibrationComplete = False
 
@@ -465,7 +476,7 @@ def calibrate(cam):
                         cv2.destroyAllWindows()
                         calibrationComplete = True
                         os.remove("calibrationData.pkl")
-                        calibrate(cam)
+                        calibrate(image_path)
 
                 except EOFError as err:
                     print(err)
@@ -484,7 +495,7 @@ def calibrate(cam):
                     print("Calibration image copied successfully")
 
                 calData.points = getTransformationPoints(imCal, "right")
-                calData.dstpoints = [12, 2, 7, 17]
+                calData.dstpoints = [12, 2, 7, 18] # 12, 2, 8, 18 orginally
                 print(calData.points)
                 print(calData.dstpoints)
                 calData.transformation_matrix = manipulateTransformationPoints(imCal, calData)
@@ -517,12 +528,6 @@ os.environ['QT_QPA_PLATFORM'] = 'xcb'
 
 if __name__ == '__main__':
     print("Welcome to darts!")
-
-    cam = VideoStream(src=0).start()
-
-    try:
-        calibrate(cam)
-    finally:
-        cam.stop()
-        cv2.destroyAllWindows()
-        print("Camera stopped and windows destroyed")
+    script_dir = os.path.dirname(__file__)
+    image_path = os.path.join(script_dir, 'frame1.jpg')
+    calibrate(image_path)
