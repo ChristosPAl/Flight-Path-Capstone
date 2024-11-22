@@ -368,7 +368,7 @@ def getTransformationPoints(image_proc_img, mount):
         # angleZone1 = (-10, 10) # 5, 5 originally
         # angleZone2 = (80,100) # 100, 80 originally
         angleZone1 = (Ellipse.angle + 15, Ellipse.angle + 35)
-        angleZone2 = (Ellipse.angle - 90, Ellipse.angle - 70)
+        angleZone2 = (Ellipse.angle - 90, Ellipse.angle - 40)
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1, angleZone2)
     else:
         lines_seg, image_proc_img = findSectorLines(edged, image_proc_img, angleZone1=(80, 120), angleZone2=(30, 40))

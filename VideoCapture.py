@@ -40,9 +40,9 @@ class VideoStream:
 
             # otherwise, read the next frame from the stream
             (grabbed, frame) = self.stream.read()
-            #frame = cv2.flip(frame, -1)  # flip the frame
+            frame = cv2.flip(frame, -1)  # flip the frame
             # rotate the frame 90 degrees
-            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+            #frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
 
             # acquire the lock, update the frame, and release the lock
             with self.lock:
